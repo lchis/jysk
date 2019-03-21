@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:lastModified="{Date}2019-03-21T11:25:25.744-07:00"
+    jcr:lastModifiedBy="admin"
+    jcr:primaryType="sling:OrderedFolder">
+    <jcr:content
+        cq:conf="/conf/jysk"
+        jcr:primaryType="nt:unstructured"
+        jcr:title="jysk">
+        <folderThumbnail/>
+        <manualThumbnail.jpg/>
+    </jcr:content>
+    <products/>
+    <assets/>
+    <office-chair.cfm.content.json/>
+</jcr:root>
