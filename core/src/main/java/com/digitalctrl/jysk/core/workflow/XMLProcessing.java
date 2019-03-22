@@ -3,6 +3,7 @@ package com.digitalctrl.jysk.core.workflow;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,7 @@ import org.xml.sax.SAXException;
 import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.Rendition;
 import com.digitalctrl.jysk.core.workflow.impl.XMLProcessingConfiguration;
+import com.adobe.cq.dam.cfm.ContentElement;
 import com.adobe.cq.dam.cfm.ContentFragment;
 import com.adobe.cq.dam.cfm.ContentFragmentException;
 import com.adobe.cq.dam.cfm.ContentFragmentManager;
@@ -57,7 +59,7 @@ public class XMLProcessing implements WorkflowProcess {
 	@Reference
 	ContentFragmentManager contentFragmentManager;
 	
-	private Resource contentFragmentTemplate;
+	private FragmentTemplate contentFragmentTemplate;
 	
 	@Activate
 	private XMLProcessingConfiguration config;
@@ -68,9 +70,17 @@ public class XMLProcessing implements WorkflowProcess {
 		loginParam.put(ResourceResolverFactory.SUBSERVICE, "xmlProcessing");
 		ResourceResolver resourceResolver = resourceResolverFactory.getServiceResourceResolver(loginParam);
 		
-		contentFragmentTemplate = resourceResolver.getResource(config.contentFragmentTemplate());
+		contentFragmentTemplate = resourceResolver.getResource(config.contentFragmentTemplate()).adaptTo(FragmentTemplate.class);
+		LOGGER.info("Got content fragment template {} from {}", contentFragmentTemplate.getTitle(), config.contentFragmentTemplate());
 		
-		LOGGER.info("Got content fragment template {} from {}", contentFragmentTemplate.getPath(), config.contentFragmentTemplate());
+		Resource parentResource = resourceResolver.getResource("/content/dam/jysk/products");
+		LOGGER.info("Creating fragment under {}", parentResource.getPath());
+		ContentFragment productContentFragment = createContentFragment(parentResource);
+		
+		Iterator<ContentElement> contentFragmentElements = productContentFragment.getElements();
+		contentFragmentElements.forEachRemaining(contentElement -> {
+			LOGGER.info("Content Fragment has content element {}", contentElement.getName());
+		});
 	}
 
 	@Override
@@ -116,15 +126,21 @@ public class XMLProcessing implements WorkflowProcess {
 			LOGGER.info("Node {} is {}", currChildNode.getNodeName(), currChildNode.getNodeValue());
 		}
 		
+		ContentFragment productContentFragment = createContentFragment(asset.adaptTo(Resource.class).getParent());
+	}
+
+	private ContentFragment createContentFragment(Resource parentResource) {
 		ContentFragment productContentFragment;
 		try {
-			productContentFragment = contentFragmentTemplate.adaptTo(FragmentTemplate.class).createFragment(asset.adaptTo(Resource.class).getParent(), "newfragment", "New Fragment");
+			productContentFragment = contentFragmentTemplate.createFragment(parentResource, "newfragment", "New Fragment");
 		} catch (ContentFragmentException e) {
-			LOGGER.error("Failed creating content fragment from template {}", contentFragmentTemplate.getPath() + " for " + asset.getPath(), e.getMessage());
-			return;
+			LOGGER.error("Failed creating content fragment from template {}", contentFragmentTemplate.getTitle()+ " at " + parentResource.getPath(), e.getMessage());
+			return null;
 		}
 		
-		LOGGER.info("Successfully created content fragment {} for {}", productContentFragment.getName(), asset.getPath());
+		LOGGER.info("Successfully created content fragment {} at {}", productContentFragment.getName(), parentResource.getPath());
+		
+		return productContentFragment;
 	}
 
 	private InputStream getXmlInputStream(Asset asset, WorkflowSession session) {
