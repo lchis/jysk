@@ -13,6 +13,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.sling.api.resource.LoginException;
+import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
@@ -24,6 +25,7 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -59,6 +61,7 @@ public class XMLProcessing implements WorkflowProcess {
 	@Reference
 	ContentFragmentManager contentFragmentManager;
 	
+	private ResourceResolver resourceResolver;
 	private FragmentTemplate contentFragmentTemplate;
 	
 	@Activate
@@ -68,19 +71,14 @@ public class XMLProcessing implements WorkflowProcess {
 	public void activate() throws LoginException {
 		Map<String, Object> loginParam = new HashMap<>();
 		loginParam.put(ResourceResolverFactory.SUBSERVICE, "xmlProcessing");
-		ResourceResolver resourceResolver = resourceResolverFactory.getServiceResourceResolver(loginParam);
+		resourceResolver = resourceResolverFactory.getServiceResourceResolver(loginParam);
 		
 		contentFragmentTemplate = resourceResolver.getResource(config.contentFragmentTemplate()).adaptTo(FragmentTemplate.class);
 		LOGGER.info("Got content fragment template {} from {}", contentFragmentTemplate.getTitle(), config.contentFragmentTemplate());
 		
 		Resource parentResource = resourceResolver.getResource("/content/dam/jysk/products");
 		LOGGER.info("Creating fragment under {}", parentResource.getPath());
-		ContentFragment productContentFragment = createContentFragment(parentResource);
-		
-		Iterator<ContentElement> contentFragmentElements = productContentFragment.getElements();
-		contentFragmentElements.forEachRemaining(contentElement -> {
-			LOGGER.info("Content Fragment has content element {}", contentElement.getName());
-		});
+		//ContentFragment productContentFragment = createContentFragment(parentResource);
 	}
 
 	@Override
@@ -97,7 +95,7 @@ public class XMLProcessing implements WorkflowProcess {
 		}
 		
 		if(asset == null) {
-			LOGGER.warn("Got null asset object from {}", asset.getPath());
+			LOGGER.warn("Got null asset object from {}", item.getContentPath());
 			return;
 		}
 		
@@ -120,16 +118,16 @@ public class XMLProcessing implements WorkflowProcess {
 		
 		Node rootNode = dc.getFirstChild();
 		NodeList childNodes = rootNode.getChildNodes();
-		int numChildNodes = childNodes.getLength();
-		for(int i = 0 ; i < numChildNodes; i++) {
-			Node currChildNode = childNodes.item(i);
-			LOGGER.info("Node {} is {}", currChildNode.getNodeName(), currChildNode.getNodeValue());
-		}
 		
-		ContentFragment productContentFragment = createContentFragment(asset.adaptTo(Resource.class).getParent());
+		ContentFragment productContentFragment = createContentFragment(asset.adaptTo(Resource.class).getParent(), (Element)rootNode);
+		try {
+			resourceResolver.commit();
+		} catch (PersistenceException e) {
+			LOGGER.error("Failed committing changes that created content fragment {}", productContentFragment.getTitle(), e.getMessage());
+		}
 	}
 
-	private ContentFragment createContentFragment(Resource parentResource) {
+	private ContentFragment createContentFragment(Resource parentResource, Element rootNode) {
 		ContentFragment productContentFragment;
 		try {
 			productContentFragment = contentFragmentTemplate.createFragment(parentResource, "newfragment", "New Fragment");
@@ -138,7 +136,47 @@ public class XMLProcessing implements WorkflowProcess {
 			return null;
 		}
 		
-		LOGGER.info("Successfully created content fragment {} at {}", productContentFragment.getName(), parentResource.getPath());
+		Iterator<ContentElement> contentFragmentElements = productContentFragment.getElements();
+		contentFragmentElements.forEachRemaining(contentElement -> {
+			Node currNode = rootNode.getElementsByTagName(contentElement.getName()).item(0);
+			
+			if(currNode == null || !currNode.hasChildNodes()) {
+				LOGGER.warn("Node fromn {} is null or doesn't have child nodes", contentElement.getName());
+				return;
+			}
+			
+			Node currTextNode = currNode.getChildNodes().item(0);
+			LOGGER.info("Getting node {} from {}", currTextNode.getNodeName(), currNode.getNodeName());
+			
+			String xmlElementValue = currTextNode.getNodeValue();
+			LOGGER.info("Got value {} from xml element {}", xmlElementValue, currTextNode.toString());
+			if(xmlElementValue != null) {/*
+				ContentElement newContentElement;
+				try {
+					//newContentElement = productContentFragment.createElement(contentFragmentTemplate.getForElement(contentElement));
+					newContentElement = productContentFragment.getElement(xmlElementValue);
+					LOGGER.info("Created content element {} for {}", newContentElement.getName(), xmlElementValue);
+				} catch (ContentFragmentException e) {
+					LOGGER.error("Failed creating content element for {}", xmlElementValue, e);
+					return;
+				}*/
+				
+				/*if(!productContentFragment.hasElement(xmlElementValue))  {
+					LOGGER.warn("Content element for {} not found on content fragment {}", currNode.getNodeName(), productContentFragment.getName());
+					return;
+				}
+				
+				ContentElement newContentElement = productContentFragment.getElement(xmlElementValue);
+				LOGGER.info("Got content element {} for {}", newContentElement.getName(), currNode.getNodeName());*/
+				
+				try {
+					contentElement.setContent(xmlElementValue + "", "text/plain");
+					LOGGER.info("Set value {} on content element {}", xmlElementValue.toString() + " - " + contentElement.getValue(), contentElement.getName());
+				} catch (ContentFragmentException e) {
+					LOGGER.error("Failed setting element {}", xmlElementValue + " on content element of type " + contentElement.getContentType(), e);
+				}
+			}
+		});
 		
 		return productContentFragment;
 	}
@@ -159,11 +197,7 @@ public class XMLProcessing implements WorkflowProcess {
 			return null;
 		}
 		
-		LOGGER.info("XML data: {}", xmlRendition.getValueMap().get("jcr:content/jcr:data"));
-		
-		LOGGER.info("Found rendition {} for asset {}", xmlRendition.getPath(), asset.getPath());
-		InputStream xmlRenditionInputStream = xmlRendition.getStream();
-		return xmlRenditionInputStream;
+		return xmlRendition.getStream();
 	}
 
 	private Asset getResourceFromItem(WorkItem item, WorkflowSession session) throws RepositoryException{
