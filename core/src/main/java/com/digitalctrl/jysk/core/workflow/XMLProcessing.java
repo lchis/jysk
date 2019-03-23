@@ -27,16 +27,17 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.Rendition;
 import com.digitalctrl.jysk.core.workflow.impl.XMLProcessingConfiguration;
+import com.adobe.cq.dam.cfm.BasicDataType;
 import com.adobe.cq.dam.cfm.ContentElement;
 import com.adobe.cq.dam.cfm.ContentFragment;
 import com.adobe.cq.dam.cfm.ContentFragmentException;
 import com.adobe.cq.dam.cfm.ContentFragmentManager;
+import com.adobe.cq.dam.cfm.FragmentData;
 import com.adobe.cq.dam.cfm.FragmentTemplate;
 import com.adobe.granite.workflow.PayloadMap;
 import com.adobe.granite.workflow.WorkflowException;
@@ -117,9 +118,7 @@ public class XMLProcessing implements WorkflowProcess {
 		}
 		
 		Node rootNode = dc.getFirstChild();
-		NodeList childNodes = rootNode.getChildNodes();
-		
-		ContentFragment productContentFragment = createContentFragment(asset.adaptTo(Resource.class).getParent(), (Element)rootNode);
+		ContentFragment productContentFragment = createContentFragment(asset, (Element)rootNode);
 		try {
 			resourceResolver.commit();
 		} catch (PersistenceException e) {
@@ -127,10 +126,13 @@ public class XMLProcessing implements WorkflowProcess {
 		}
 	}
 
-	private ContentFragment createContentFragment(Resource parentResource, Element rootNode) {
+	private ContentFragment createContentFragment(Asset asset, Element rootNode) {
+		Resource parentResource = asset.adaptTo(Resource.class).getParent();
+		
 		ContentFragment productContentFragment;
 		try {
-			productContentFragment = contentFragmentTemplate.createFragment(parentResource, "newfragment", "New Fragment");
+			String assetName = asset.getName().split("\\.")[0];
+			productContentFragment = contentFragmentTemplate.createFragment(parentResource, assetName, splitCamelCase(assetName));
 		} catch (ContentFragmentException e) {
 			LOGGER.error("Failed creating content fragment from template {}", contentFragmentTemplate.getTitle()+ " at " + parentResource.getPath(), e.getMessage());
 			return null;
@@ -146,32 +148,15 @@ public class XMLProcessing implements WorkflowProcess {
 			}
 			
 			Node currTextNode = currNode.getChildNodes().item(0);
-			LOGGER.info("Getting node {} from {}", currTextNode.getNodeName(), currNode.getNodeName());
-			
 			String xmlElementValue = currTextNode.getNodeValue();
 			LOGGER.info("Got value {} from xml element {}", xmlElementValue, currTextNode.toString());
-			if(xmlElementValue != null) {/*
-				ContentElement newContentElement;
+			if(xmlElementValue != null) {
 				try {
-					//newContentElement = productContentFragment.createElement(contentFragmentTemplate.getForElement(contentElement));
-					newContentElement = productContentFragment.getElement(xmlElementValue);
-					LOGGER.info("Created content element {} for {}", newContentElement.getName(), xmlElementValue);
-				} catch (ContentFragmentException e) {
-					LOGGER.error("Failed creating content element for {}", xmlElementValue, e);
-					return;
-				}*/
-				
-				/*if(!productContentFragment.hasElement(xmlElementValue))  {
-					LOGGER.warn("Content element for {} not found on content fragment {}", currNode.getNodeName(), productContentFragment.getName());
-					return;
-				}
-				
-				ContentElement newContentElement = productContentFragment.getElement(xmlElementValue);
-				LOGGER.info("Got content element {} for {}", newContentElement.getName(), currNode.getNodeName());*/
-				
-				try {
-					contentElement.setContent(xmlElementValue + "", "text/plain");
-					LOGGER.info("Set value {} on content element {}", xmlElementValue.toString() + " - " + contentElement.getValue(), contentElement.getName());
+					Object convertedValue = convertValue(contentElement.getValue().getDataType().getTypeString(), xmlElementValue);
+					FragmentData contentElementValue = contentElement.getValue();
+					contentElementValue.setValue(convertedValue);
+					contentElement.setValue(contentElementValue);
+					LOGGER.info("Set value {} on content element {}", contentElement.getValue().getValue() + " as " + contentElement.getValue().getDataType().getTypeString(), contentElement.getName());
 				} catch (ContentFragmentException e) {
 					LOGGER.error("Failed setting element {}", xmlElementValue + " on content element of type " + contentElement.getContentType(), e);
 				}
@@ -179,6 +164,26 @@ public class XMLProcessing implements WorkflowProcess {
 		});
 		
 		return productContentFragment;
+	}
+	
+	private static String splitCamelCase(String s) {
+		String splitString = s.replaceAll(String.format("%s|%s|%s", "(?<=[A-Z])(?=[A-Z][a-z])", "(?<=[^A-Z])(?=[A-Z])",
+				"(?<=[A-Za-z])(?=[^A-Za-z])"), " ");
+		return splitString.substring(0, 1).toUpperCase() + splitString.substring(1);
+	}
+	
+	private static Object convertValue(String datatype, String value) {
+		switch(datatype) {
+		case BasicDataType.DOUBLE: {
+			return Double.parseDouble(value);
+		}
+		case BasicDataType.LONG: {
+			return Long.parseLong(value);
+		}
+		default: {
+			return value;
+		}
+		}
 	}
 
 	private InputStream getXmlInputStream(Asset asset, WorkflowSession session) {
