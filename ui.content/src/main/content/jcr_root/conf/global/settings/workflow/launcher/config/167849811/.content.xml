@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:WorkflowLauncher"
+    condition=""
+    conditions="[jcr:content/jcr:mimeType==application/xml]"
+    description="JYSK Create Product "
+    disabledFeatures="[]"
+    enabled="{Boolean}true"
+    eventType="{Long}1"
+    excludeList="jcr:lastModified,dc:modified,dc:format,jcr:lastModifiedBy,imageMap,event-user-data:changedByWorkflowProcess"
+    features="[]"
+    glob="/content/dam/jysk(/((?!/subassets).)*/)renditions/original"
+    nodetype="nt:file"
+    runModes="author"
+    workflow="/var/workflow/models/jysk-product-creator"/>

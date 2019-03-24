@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:dam="http://www.day.com/dam/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:mix="http://www.jcp.org/jcr/mix/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:mixinTypes="[mix:referenceable]"
+    jcr:primaryType="dam:Asset"
+    jcr:uuid="cf70aa2e-59a0-4d66-992c-07f632c281f9">
+    <jcr:content
+        jcr:primaryType="dam:AssetContent"
+        jcr:title="Courtney Stool"
+        contentFragment="{Boolean}true">
+        <data
+            cq:model="/conf/jysk/settings/dam/cfm/models/jysk-product"
+            jcr:primaryType="nt:unstructured">
+            <master
+                jcr:primaryType="nt:unstructured"
+                assetReference_x0040_LastModified="{Date}2019-03-23T12:00:12.680-07:00"
+                color="black"
+                color_x0040_LastModified="{Date}2019-03-23T12:00:12.684-07:00"
+                description="A swivel stool with adjustable height perfect for bars and hightops"
+                description_x0040_LastModified="{Date}2019-03-23T12:00:12.682-07:00"
+                discount="{Double}20.0"
+                discount_x0040_LastModified="{Date}2019-03-23T12:00:12.685-07:00"
+                price="{Double}59.99"
+                price_x0040_LastModified="{Date}2019-03-23T12:00:12.685-07:00"
+                sku="708-10-1019"
+                sku_x0040_LastModified="{Date}2019-03-23T12:00:12.682-07:00"
+                title="Courtney Bar Stool"
+                title_x0040_LastModified="{Date}2019-03-23T12:00:12.681-07:00"/>
+        </data>
+        <metadata
+            jcr:mixinTypes="[cq:Taggable]"
+            jcr:primaryType="nt:unstructured"/>
+        <related jcr:primaryType="nt:unstructured"/>
+    </jcr:content>
+</jcr:root>

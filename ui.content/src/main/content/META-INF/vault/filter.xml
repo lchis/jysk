@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <workspaceFilter version="1.0">
     <filter root="/conf/jysk"/>
+    <filter root="/conf/global/settings/workflow/models/jysk-product-creator"/>
+    <filter root="/conf/global/settings/workflow/launcher/config"/>
+    <filter root="/var/workflow/models/jysk-product-creator"/>
     <filter root="/content/jysk"/>
     <filter root="/content/dam/jysk"/>
 </workspaceFilter>
