@@ -25,8 +25,8 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.day.cq.dam.api.Asset;
@@ -118,15 +118,29 @@ public class XMLProcessing implements WorkflowProcess {
 		}
 		
 		Node rootNode = dc.getFirstChild();
-		ContentFragment productContentFragment = createContentFragment(asset, (Element)rootNode);
+		ContentFragment productContentFragment = createContentFragment(asset, getXmlElements(rootNode));
 		try {
 			resourceResolver.commit();
 		} catch (PersistenceException e) {
 			LOGGER.error("Failed committing changes that created content fragment {}", productContentFragment.getTitle(), e.getMessage());
 		}
 	}
+	
+	private Map<String, String> getXmlElements(Node rootNode){
+		Map<String, String> xmlElements = new HashMap<>();
+		
+		NodeList childNodes = rootNode.getChildNodes();
+		int numChildNodes = childNodes.getLength();
+		for(int i = 0; i < numChildNodes; i++) {
+			Node currNode = childNodes.item(i);
+			xmlElements.put(currNode.getNodeName(), currNode.getTextContent());
+			LOGGER.info("Added node {} - {}", currNode.getNodeName(), currNode.getTextContent());
+		}
+		
+		return xmlElements;
+	}
 
-	private ContentFragment createContentFragment(Asset asset, Element rootNode) {
+	private ContentFragment createContentFragment(Asset asset, Map<String, String> dataElements) {
 		Resource parentResource = asset.adaptTo(Resource.class).getParent();
 		
 		ContentFragment productContentFragment;
@@ -138,40 +152,41 @@ public class XMLProcessing implements WorkflowProcess {
 			return null;
 		}
 		
+		// Iterate through the content fragment's elements, find the value from the data source for each and set it
 		Iterator<ContentElement> contentFragmentElements = productContentFragment.getElements();
 		contentFragmentElements.forEachRemaining(contentElement -> {
-			Node currNode = rootNode.getElementsByTagName(contentElement.getName()).item(0);
-			
-			if(currNode == null || !currNode.hasChildNodes()) {
-				LOGGER.warn("Node fromn {} is null or doesn't have child nodes", contentElement.getName());
+			// Get value corresponding to current content fragment element name
+			String currValue = dataElements.get(contentElement.getName());
+			if(currValue == null) {
+				LOGGER.warn("Didn't get a value for {}, ignoring", contentElement.getName());
 				return;
 			}
 			
-			Node currTextNode = currNode.getChildNodes().item(0);
-			String xmlElementValue = currTextNode.getNodeValue();
-			LOGGER.info("Got value {} from xml element {}", xmlElementValue, currTextNode.toString());
-			if(xmlElementValue != null) {
-				try {
-					Object convertedValue = convertValue(contentElement.getValue().getDataType().getTypeString(), xmlElementValue);
-					FragmentData contentElementValue = contentElement.getValue();
-					contentElementValue.setValue(convertedValue);
-					contentElement.setValue(contentElementValue);
-					LOGGER.info("Set value {} on content element {}", contentElement.getValue().getValue() + " as " + contentElement.getValue().getDataType().getTypeString(), contentElement.getName());
-				} catch (ContentFragmentException e) {
-					LOGGER.error("Failed setting element {}", xmlElementValue + " on content element of type " + contentElement.getContentType(), e);
-				}
+			// Set value on content element in content fragment
+			try {
+				Object convertedValue = convertValue(contentElement.getValue().getDataType().getTypeString(), currValue);
+				FragmentData contentElementValue = contentElement.getValue();
+				
+				contentElementValue.setValue(convertedValue);
+				contentElement.setValue(contentElementValue);
+				
+				LOGGER.info("Set value {} on content element {}", contentElement.getValue().getValue() + " as " + contentElement.getValue().getDataType().getTypeString(), contentElement.getName());
+			} catch (ContentFragmentException e) {
+				LOGGER.error("Failed setting element {}", currValue + " on content element of type " + contentElement.getContentType(), e);
 			}
 		});
 		
 		return productContentFragment;
 	}
 	
+	// Function to split camel case from file name to set as content fragment title
 	private static String splitCamelCase(String s) {
 		String splitString = s.replaceAll(String.format("%s|%s|%s", "(?<=[A-Z])(?=[A-Z][a-z])", "(?<=[^A-Z])(?=[A-Z])",
 				"(?<=[A-Za-z])(?=[^A-Za-z])"), " ");
 		return splitString.substring(0, 1).toUpperCase() + splitString.substring(1);
 	}
 	
+	// Function to convert string value from data source to that type expected by the content fragment element template data type
 	private static Object convertValue(String datatype, String value) {
 		switch(datatype) {
 		case BasicDataType.DOUBLE: {
@@ -215,10 +230,8 @@ public class XMLProcessing implements WorkflowProcess {
 		
 		ResourceResolver resourceResolver = session.adaptTo(ResourceResolver.class);
 		Rendition assetRendition = resourceResolver.getResource(workflowData.getPayload().toString()).adaptTo(Rendition.class);
+		
 		Asset asset = assetRendition.getAsset();
-		
-		LOGGER.info("Possible paths {} and {}", item.getContentPath(), workflowData.getPayload().toString());
-		
 		if(asset == null) {
 			LOGGER.warn("Failed getting resource from payload");
 			return null;
