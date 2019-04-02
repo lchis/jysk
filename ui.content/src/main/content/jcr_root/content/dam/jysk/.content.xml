@@ -3,6 +3,7 @@
     jcr:lastModified="{Date}2019-03-21T11:25:25.744-07:00"
     jcr:lastModifiedBy="admin"
     jcr:primaryType="sling:OrderedFolder">
+    <asset.jpg/>
     <jcr:content
         cq:conf="/conf/jysk"
         jcr:primaryType="nt:unstructured"

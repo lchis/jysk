@@ -26,12 +26,15 @@
 	<properties>
 		<aem.host>localhost</aem.host>
 		<aem.port>4502</aem.port>
+		<aem.host.remote>40.112.161.18</aem.host.remote>
 		<aem.publish.host>localhost</aem.publish.host>
 		<aem.publish.port>4503</aem.publish.port>
 		<sling.user>admin</sling.user>
 		<sling.password>admin</sling.password>
+		<sling.password.remote>snrT6YrD</sling.password.remote>
 		<vault.user>admin</vault.user>
 		<vault.password>admin</vault.password>
+		<vault.password.remote>snrT6YrD</vault.password.remote>
 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -393,6 +396,36 @@
 									</goals>
 									<configuration>
 										<targetURL>http://${aem.host}:${aem.port}/crx/packmgr/service.jsp</targetURL>
+									</configuration>
+								</execution>
+							</executions>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+		
+		<profile>
+			<id>autoInstallPackageRemote</id>
+			<activation>
+				<activeByDefault>false</activeByDefault>
+			</activation>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>com.day.jcr.vault</groupId>
+							<artifactId>content-package-maven-plugin</artifactId>
+							<executions>
+								<execution>
+									<id>install-package</id>
+									<goals>
+										<goal>install</goal>
+									</goals>
+									<configuration>
+										<targetURL>http://${aem.host.remote}:${aem.port}/crx/packmgr/service.jsp</targetURL>
+										<userId>${vault.user}</userId>
+										<password>${vault.password.remote}</password>
 									</configuration>
 								</execution>
 							</executions>
